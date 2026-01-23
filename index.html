@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>santiago ballesta</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- RESET & BASIC SETUP --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+
+        body {
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Playfair Display', serif;
+            height: 100vh;
+            overflow: hidden; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* --- 1. EFECTO RUIDO --- */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9000;
+            opacity: 0.015;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+        }
+
+        /* --- 2. CUSTOM CURSOR --- */
+        #cursor-dot, #cursor-ring {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        #cursor-dot {
+            width: 4px;
+            height: 4px;
+            background-color: white;
+        }
+        #cursor-ring {
+            width: 25px;
+            height: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+        body.hovering #cursor-ring {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.05); 
+            border-color: transparent;
+        }
+        @media (hover: none) and (pointer: coarse) {
+            #cursor-dot, #cursor-ring { display: none; }
+            * { cursor: auto; }
+        }
+
+        /* --- 3. NOTIFICACIÓN TOAST --- */
+        #toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-style: italic;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            z-index: 10000;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- PANTALLA DE CARGA --- */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff; 
+            z-index: 9998;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 1.5s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+        #loading-screen h1 {
+            font-size: 3rem;
+            font-weight: 400;
+            letter-spacing: 3px;
+            color: #050505; 
+            animation: textFadeIn 1s ease-out forwards;
+            opacity: 0;
+        }
+        #loading-screen.slide-up { transform: translateY(-100%); }
+        @keyframes textFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- FONDO ESTRELLAS --- */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* --- CONTENEDOR PRINCIPAL --- */
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 2.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .name-group {
+            margin-bottom: 20px; 
+            transition: transform 2.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        h1.main-title { 
+            font-size: 3.5rem; 
+            font-weight: 400;
+            letter-spacing: 1px;
+            margin-bottom: 0.2rem;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+            line-height: 1;
+        }
+        h2 {
+            font-size: 1.1rem;
+            color: #777;
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        /* --- STACK WRAPPER --- */
+        .stack-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden; 
+            width: 600px; 
+            padding-bottom: 50px; 
+            max-height: 40px; 
+            padding-top: 10px;
+            transition: max-height 2.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .trigger-text {
+            font-size: 1rem;
+            color: #555;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            transition: all 1.5s ease;
+            margin-bottom: 15px;
+            flex-shrink: 0; 
+        }
+        .stack-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1s ease, transform 2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* --- INTERACCIÓN --- */
+        .container:hover { transition: all 2s cubic-bezier(0.23, 1, 0.32, 1); }
+        .stack-wrapper:hover {
+            max-height: 350px; 
+            transition: max-height 2s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .stack-wrapper:hover .trigger-text {
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.5s ease; 
+        }
+        .stack-wrapper:hover .stack-list {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 1.5s ease 0.2s, transform 1.8s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* --- ITEMS --- */
+        .stack-item {
+            font-size: 2.2rem;
+            color: #1a1a1a; 
+            transition: transform 0.1s linear; 
+            will-change: color, text-shadow, transform;
+            user-select: none;
+            line-height: 1.1; 
+            padding: 5px 10px; 
+        }
+
+        /* --- REDES --- */
+        .socials {
+            position: fixed; 
+            bottom: 30px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            opacity: 0.6;
+            transition: opacity 0.5s;
+            z-index: 100;
+        }
+        .socials:hover { opacity: 1; }
+        .social-link {
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-style: italic;
+            position: relative;
+            background: none;
+            border: none;
+            font-family: inherit;
+        }
+        .social-link::after {
+            content: '';
+            display: block;
+            width: 0;
+            height: 1px;
+            background: #fff;
+            transition: width 0.3s;
+        }
+        .social-link:hover::after { width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+    <div class="noise-overlay"></div>
+    <div id="toast">email copiado</div>
+    <div id="loading-screen">
+        <h1>santiago ballesta</h1>
+    </div>
+
+    <canvas id="starfield"></canvas>
+
+    <div class="container">
+        <div class="name-group">
+            <h1 class="main-title">santiago ballesta</h1>
+            <h2>junior developer</h2>
+        </div>
+        <div class="stack-wrapper hover-trigger">
+            <div class="trigger-text">ver stack</div>
+            <ul class="stack-list">
+                <li class="stack-item hover-trigger">html</li>
+                <li class="stack-item hover-trigger">css</li>
+                <li class="stack-item hover-trigger">javascript</li>
+                <li class="stack-item hover-trigger">sql</li>
+                <li class="stack-item hover-trigger">java</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="socials">
+        <a href="https://www.linkedin.com/in/santiago-ballesta-carmona/" class="social-link hover-trigger" target="_blank">linkedin</a>
+        <a href="https://github.com/ballestitaa" class="social-link hover-trigger" target="_blank">github</a>
+        <button class="social-link hover-trigger" onclick="copyEmail()">email</button>
+    </div>
+
+    <script>
+        // --- VARIABLES GLOBALES PARA EL RATÓN ---
+        let mouseX = 0, mouseY = 0;
+
+        // --- 1. LÓGICA DEL CUSTOM CURSOR Y RASTREO ---
+        const cursorDot = document.getElementById('cursor-dot');
+        const cursorRing = document.getElementById('cursor-ring');
+        
+        document.addEventListener('mousemove', (e) => {
+            // Actualizamos variables globales
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            // Movemos el cursor custom
+            cursorDot.style.left = mouseX + 'px';
+            cursorDot.style.top = mouseY + 'px';
+            cursorRing.style.left = mouseX + 'px';
+            cursorRing.style.top = mouseY + 'px';
+        });
+
+        const hoverElements = document.querySelectorAll('.hover-trigger, a, button');
+        hoverElements.forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+            el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+        });
+
+        // --- 2. COPIAR EMAIL ---
+        function copyEmail() {
+            const email = "santi@ballesta.com.es";
+            navigator.clipboard.writeText(email).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
+
+        // --- 3. PANTALLA DE CARGA ---
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loading-screen');
+            setTimeout(() => {
+                loader.classList.add('slide-up');
+                setTimeout(() => { loader.remove(); }, 1500);
+            }, 1200);
+        });
+
+        // --- 4. SPOTLIGHT STACK ---
+        const listItems = document.querySelectorAll('.stack-item');
+        const listContainer = document.querySelector('.stack-wrapper');
+        const SPOTLIGHT_DIST = 100; 
+
+        document.addEventListener('mousemove', (e) => {
+            if (!listContainer.matches(':hover')) return;
+            listItems.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const itemX = rect.left + rect.width / 2;
+                const itemY = rect.top + rect.height / 2;
+                const dist = Math.hypot(e.clientX - itemX, e.clientY - itemY);
+                let intensity = 1 - (dist / SPOTLIGHT_DIST);
+                if (intensity < 0) intensity = 0;
+                const colorVal = Math.floor(26 + (229 * intensity));
+                item.style.color = `rgb(${colorVal}, ${colorVal}, ${colorVal})`;
+                if (intensity > 0) {
+                    item.style.textShadow = `0 0 ${intensity * 15}px rgba(255,255,255, ${intensity * 0.8})`;
+                    item.style.transform = `scale(${1 + (intensity * 0.15)})`; 
+                } else {
+                    item.style.textShadow = "none";
+                    item.style.transform = "scale(1)";
+                }
+            });
+        });
+
+        // --- 5. ESTRELLAS Y CONSTELACIONES ---
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let stars = [];
+        // Reducimos un poco las estrellas para que no sea un caos de líneas
+        const numStars = 400; 
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Star {
+            constructor() { 
+                this.reset();
+                this.velocity = Math.random() * 0.8 + 0.2;
+                // Guardamos posición en pantalla
+                this.sx = 0; this.sy = 0;
+            }
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 2;
+                this.y = (Math.random() - 0.5) * height * 2;
+                this.z = Math.random() * width; 
+                this.velocity = Math.random() * 0.8 + 0.2;
+                this.pz = this.z; 
+            }
+            update() {
+                this.pz = this.z; 
+                this.z -= this.velocity; 
+                if (this.z < 1) { 
+                    this.reset(); 
+                    this.z = width; 
+                    this.pz = width; 
+                }
+                // Calculamos posición 2D actual
+                this.sx = (this.x / this.z) * (width / 2) + (width / 2);
+                this.sy = (this.y / this.z) * (height / 2) + (height / 2);
+            }
+            draw() {
+                let tailZ = this.z + (this.velocity * 20); 
+                let px = (this.x / tailZ) * (width / 2) + (width / 2);
+                let py = (this.y / tailZ) * (height / 2) + (height / 2);
+                let r = (width / this.z) * 0.15; 
+                let alpha = 1 - (this.z / width);
+
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(this.sx, this.sy);
+                ctx.lineWidth = r; 
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.lineCap = 'round'; 
+                ctx.stroke();
+            }
+        }
+        
+        for (let i = 0; i < numStars; i++) { stars.push(new Star()); }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // 1. Actualizar y dibujar estrellas
+            for (let star of stars) { star.update(); star.draw(); }
+
+            // 2. Lógica de Constelaciones (Conectar estrellas cercanas al ratón)
+            for (let i = 0; i < stars.length; i++) {
+                let starA = stars[i];
+                
+                // Optimización: Primero mirar si la estrella A está cerca del ratón (radio 150px)
+                let distToMouse = Math.hypot(mouseX - starA.sx, mouseY - starA.sy);
+                if (distToMouse > 150) continue; 
+
+                // Si está cerca del ratón, buscar vecinos
+                for (let j = i + 1; j < stars.length; j++) {
+                     let starB = stars[j];
+                     // Distancia entre estrella A y estrella B
+                     let distBetween = Math.hypot(starA.sx - starB.sx, starA.sy - starB.sy);
+
+                     // Si están cerca (menos de 100px), dibujar línea
+                     if (distBetween < 100) {
+                         // Opacidad basada en distancia (más cerca = más visible)
+                         let opacity = 1 - (distBetween / 100);
+                         ctx.beginPath();
+                         ctx.moveTo(starA.sx, starA.sy);
+                         ctx.lineTo(starB.sx, starB.sy);
+                         // Línea muy fina y sutil
+                         ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
+                         ctx.lineWidth = 0.5;
+                         ctx.stroke();
+                     }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
